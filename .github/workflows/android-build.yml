@@ -1,42 +1,66 @@
-name: Android Build (Google Play AAB)
+name: Android Build - AAB for Google Play
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  on:
+    workflow_dispatch:
+    push:
+      branches: [main]
+      paths:
+        - 'artifacts/rawabi-menu/**'
+        - '.github/workflows/android-build.yml'
 
-jobs:
-  build-android:
-    name: Build Android AAB
-    runs-on: ubuntu-latest
+  jobs:
+    build-android:
+      name: Build Android AAB (Local - No EAS Credits)
+      runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+        - name: Setup Java 17
+          uses: actions/setup-java@v4
+          with:
+            distribution: temurin
+            java-version: 17
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        - name: Setup Android SDK
+          uses: android-actions/setup-android@v3
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        - name: Setup Node.js 20
+          uses: actions/setup-node@v4
+          with:
+            node-version: 20
 
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+        - name: Setup pnpm
+          uses: pnpm/action-setup@v4
+          with:
+            version: 10
 
-      - name: Build Android AAB
-        working-directory: artifacts/rawabi-menu
-        run: eas build --platform android --profile production --non-interactive --no-wait
+        - name: Install dependencies
+          run: pnpm install --no-frozen-lockfile
 
-      - name: Print build URL
-        run: |
-          echo "https://expo.dev/accounts/021837ala/projects/rawabi-menu/builds"
+        - name: Setup EAS CLI
+          uses: expo/expo-github-action@v8
+          with:
+            eas-version: latest
+            token: ${{ secrets.EXPO_TOKEN }}
+
+        - name: Build Android AAB locally (no cloud credits)
+          working-directory: artifacts/rawabi-menu
+          run: eas build --platform android --profile production --local --non-interactive --output ./build.aab
+          env:
+            EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+        - name: Upload AAB artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: rawabi-mandi-release-aab
+            path: artifacts/rawabi-menu/build.aab
+            retention-days: 30
+
+        - name: Build summary
+          run: |
+            echo "## ✅ Build Complete" >> $GITHUB_STEP_SUMMARY
+            echo "Download the AAB from the Artifacts section above" >> $GITHUB_STEP_SUMMARY
+            echo "Upload it to Google Play Console > Internal Testing > Create new release" >> $GITHUB_STEP_SUMMARY
+  
